@@ -1,0 +1,113 @@
+name: "GitHub Workflow Auditor"
+description: "Scan workflows for security risks and performance improvements, with optional AI advisor"
+author: "MaximilianoAguirre"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  github_token:
+    description: "GitHub token with repo read access. Use GITHUB_TOKEN for same-repo scans or a PAT for org-wide."
+    required: true
+  org:
+    description: "Organization to scan. If set, scans all repos in the org (subject to token scope)."
+    required: false
+    default: ""
+  repo:
+    description: "Repository to scan in owner/name. If empty and no org, scans the checked-out repository."
+    required: false
+    default: ""
+  include_archived:
+    description: "Include archived repos."
+    required: false
+    default: "false"
+  exclude:
+    description: "Comma-separated glob-like patterns to skip, e.g. '*/experimental/*,legacy-*'"
+    required: false
+    default: ""
+  fail_on_findings:
+    description: "Fail the job if any findings appear."
+    required: false
+    default: "false"
+  output_format:
+    description: "md or sarif or both"
+    required: false
+    default: "both"
+  sarif_to_codeql:
+    description: "Upload SARIF to CodeQL for better visibility and autofix suggestions"
+    required: false
+    default: "false"
+  min_severity:
+    description: "Minimum severity to report (low, medium, high)"
+    required: false
+    default: "low"
+
+  # AI advisor
+  ai_enabled:
+    description: "Enable LLM advisor pass"
+    required: false
+    default: "false"
+  ai_provider:
+    description: "Only 'hf' supported for free tier"
+    required: false
+    default: "hf"
+  ai_model:
+    description: "HF model id, e.g. mistralai/Mistral-7B-Instruct-v0.3"
+    required: false
+    default: "mistralai/Mistral-7B-Instruct-v0.3"
+  ai_openrouter_token:
+    description: "OpenRouter token (free). Pass secrets.OPENROUTER_API_KEY when calling the action."
+    required: false
+    default: ""
+  ai_max_tokens:
+    description: "LLM max_new_tokens"
+    required: false
+    default: "400"
+  ai_temperature:
+    description: "LLM temperature"
+    required: false
+    default: "0.1"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install deps
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r "$GITHUB_ACTION_PATH/requirements.txt"
+
+    - name: Audit workflows
+      shell: bash
+      env:
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+        INPUT_ORG: ${{ inputs.org }}
+        INPUT_REPO: ${{ inputs.repo }}
+        INPUT_INCLUDE_ARCHIVED: ${{ inputs.include_archived }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
+        INPUT_OUTPUT_FORMAT: ${{ inputs.output_format }}
+        INPUT_AI_ENABLED: ${{ inputs.ai_enabled }}
+        INPUT_AI_PROVIDER: ${{ inputs.ai_provider }}
+        INPUT_AI_MODEL: ${{ inputs.ai_model }}
+        INPUT_AI_MAX_TOKENS: ${{ inputs.ai_max_tokens }}
+        INPUT_AI_TEMPERATURE: ${{ inputs.ai_temperature }}
+        OPENROUTER_API_KEY: ${{ inputs.ai_openrouter_token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        INPUT_MIN_SEVERITY: ${{ inputs.min_severity }}
+      run: |
+        python "$GITHUB_ACTION_PATH/audit.py"
+
+    - name: Upload SARIF (if generated)
+      if: ${{ inputs.sarif_to_codeql == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: workflow-audit.sarif
+        category: workflow-audit
+
+
