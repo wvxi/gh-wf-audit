@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run auditor
-        uses: allianz-global-investors-test/gh-wf-audit@main
+        uses: wvxi/gh-wf-audit@main
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           output_format: both
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run auditor on org
-        uses: allianz-global-investors-test/gh-wf-audit@main
+        uses: wvxi/gh-wf-audit@main
         with:
           github_token: ${{ secrets.ORG_READ_PAT }}
           org: your-org-name
